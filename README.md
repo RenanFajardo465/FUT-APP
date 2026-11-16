@@ -1,4 +1,4 @@
-# Pelada
+# Fut-Pro
 
 PWA para gestão de peladas de futebol: check-in por ordem de chegada, sorteio
 equilibrado de times, rodízio FIFO, complemento justo de times incompletos e
@@ -95,7 +95,7 @@ npm run lint
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | sim | URL do projeto Supabase |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | sim | Chave publishable (`sb_publishable_…`) ou a anon key legada (também aceita como `NEXT_PUBLIC_SUPABASE_ANON_KEY`) |
-| `NEXT_PUBLIC_APP_NAME` | não | Nome do app no manifest e no título (padrão `Pelada`) |
+| `NEXT_PUBLIC_APP_NAME` | não | Nome do app no manifest e no título (padrão `Fut-Pro`) |
 
 ## Deploy (Vercel)
 
