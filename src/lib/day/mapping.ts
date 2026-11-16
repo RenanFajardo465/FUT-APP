@@ -22,6 +22,7 @@ export interface AttendanceRow {
   is_goalkeeper: boolean;
   drawn_in_cycle: boolean;
   played: boolean;
+  left_at: string | null;
 }
 
 export interface TeamRow {
@@ -143,6 +144,7 @@ export function rowsToState(rows: DayRows): DayState {
     drawCycle: rows.day.draw_cycle,
     drawnInCycle: checked.filter((a) => a.drawn_in_cycle).map((a) => a.player_id),
     played: checked.filter((a) => a.played).map((a) => a.player_id),
+    left: checked.filter((a) => a.left_at !== null).map((a) => a.player_id),
     draws,
   };
 }
@@ -151,6 +153,7 @@ export function rowsToState(rows: DayRows): DayState {
 export function stateToPayload(s: DayState) {
   const drawn = new Set(s.drawnInCycle);
   const played = new Set(s.played);
+  const left = new Set(s.left);
   const position = (label: TeamLabel) => {
     if (s.field?.[0] === label) return 0;
     if (s.field?.[1] === label) return 1;
@@ -169,6 +172,7 @@ export function stateToPayload(s: DayState) {
       is_goalkeeper: a.isGoalkeeper,
       drawn: drawn.has(a.playerId),
       played: played.has(a.playerId),
+      left: left.has(a.playerId),
     })),
     teams: s.teams.map((t) => ({
       label: t.label,

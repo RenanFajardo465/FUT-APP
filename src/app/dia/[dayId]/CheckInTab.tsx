@@ -3,7 +3,14 @@ import { useState } from "react";
 import { canFormTeams, goalkeepers, lineArrivals, matchDuration, teamOf, waitingList } from "@/lib/engine";
 import { Stars } from "@/components/Stars";
 import { btn, card, input } from "@/lib/ui/styles";
-import { addGuestAction, checkInAction, formTeamsAction, undoCheckInAction } from "./actions";
+import {
+  addGuestAction,
+  checkInAction,
+  formTeamsAction,
+  leftAction,
+  returnedAction,
+  undoCheckInAction,
+} from "./actions";
 import { useDay } from "./DayScreen";
 import { TeamBadge } from "./TeamCard";
 
@@ -21,8 +28,10 @@ export function CheckInTab({ onFormed }: { onFormed: () => void }) {
   const waiting = new Set(waitingList(state));
   const filter = (name: string) => name.toLocaleLowerCase("pt-BR").includes(q.toLocaleLowerCase("pt-BR"));
 
+  const left = new Set(state.left);
+  const gone = view.players.filter((p) => left.has(p.id) && filter(p.name));
   const arrived = view.players
-    .filter((p) => orderOf.has(p.id) && filter(p.name))
+    .filter((p) => orderOf.has(p.id) && !left.has(p.id) && filter(p.name))
     .sort((a, b) => orderOf.get(b.id)! - orderOf.get(a.id)!); // mais recente primeiro
   const notArrived = view.players.filter((p) => !orderOf.has(p.id) && filter(p.name));
 
@@ -107,6 +116,21 @@ export function CheckInTab({ onFormed }: { onFormed: () => void }) {
                   </span>
                   {team && <TeamBadge label={team} className="size-7 text-sm" />}
                   {waiting.has(p.id) && <span className="text-xs text-team-c">espera</span>}
+                  {!closed && (
+                    <button
+                      type="button"
+                      className="text-xs rounded-md border border-line px-2 h-7 text-muted"
+                      disabled={pending}
+                      aria-label={`${p.name} foi embora`}
+                      onClick={() => {
+                        if (confirm(`${p.name} foi embora? Ele sai do time e deixa de contar como presente.`)) {
+                          run(() => leftAction(dayId, version, p.id));
+                        }
+                      }}
+                    >
+                      Saiu
+                    </button>
+                  )}
                   {!played && !closed && (
                     <button
                       type="button"
@@ -114,7 +138,7 @@ export function CheckInTab({ onFormed }: { onFormed: () => void }) {
                       disabled={pending}
                       aria-label={`Desfazer check-in de ${p.name}`}
                       onClick={() => {
-                        if (confirm(`Desfazer o check-in de ${p.name}?`)) {
+                        if (confirm(`Desfazer o check-in de ${p.name}? (use se foi registrado por engano)`)) {
                           run(() => undoCheckInAction(dayId, version, p.id));
                         }
                       }}
@@ -126,6 +150,33 @@ export function CheckInTab({ onFormed }: { onFormed: () => void }) {
               );
             })}
           </ul>
+        </section>
+      )}
+
+      {gone.length > 0 && (
+        <section>
+          <h2 className="text-sm text-muted mb-2">Foram embora</h2>
+          <ul className="space-y-1.5">
+            {gone.map((p) => (
+              <li key={p.id} className={`${card} flex items-center gap-3 px-3 h-12 opacity-70`}>
+                <span className="flex-1 truncate line-through decoration-muted">
+                  {p.isGoalkeeper && "🧤 "}
+                  {p.name}
+                </span>
+                {!closed && (
+                  <button
+                    type="button"
+                    className="text-xs rounded-md border border-line px-2 h-7"
+                    disabled={pending}
+                    onClick={() => run(() => returnedAction(dayId, version, p.id))}
+                  >
+                    Voltou
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted mt-1">Quem volta entra como nova chegada, no fim da ordem.</p>
         </section>
       )}
     </div>

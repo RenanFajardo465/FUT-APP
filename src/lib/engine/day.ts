@@ -34,16 +34,32 @@ export function createDay(config: DayConfig): DayState {
     drawCycle: 1,
     drawnInCycle: [],
     played: [],
+    left: [],
     draws: [],
   };
 }
 
-export function lineArrivals(s: CoreState): Arrival[] {
-  return s.arrivals.filter((a) => !a.isGoalkeeper).sort((a, b) => a.order - b.order);
+function hasLeft(s: CoreState, playerId: string): boolean {
+  return (s.left ?? []).includes(playerId);
 }
 
+/** Line players present (checked in and not gone), by arrival order. */
+export function lineArrivals(s: CoreState): Arrival[] {
+  return s.arrivals
+    .filter((a) => !a.isGoalkeeper && !hasLeft(s, a.playerId))
+    .sort((a, b) => a.order - b.order);
+}
+
+/** Goalkeepers present, by arrival order. */
 export function goalkeepers(s: CoreState): Arrival[] {
-  return s.arrivals.filter((a) => a.isGoalkeeper).sort((a, b) => a.order - b.order);
+  return s.arrivals
+    .filter((a) => a.isGoalkeeper && !hasLeft(s, a.playerId))
+    .sort((a, b) => a.order - b.order);
+}
+
+/** Everyone present (line + goalkeepers). */
+export function presentCount(s: CoreState): number {
+  return s.arrivals.filter((a) => !hasLeft(s, a.playerId)).length;
 }
 
 export function teamsFormed(s: CoreState): boolean {
@@ -180,7 +196,15 @@ export function removeCheckIn(
   }
   const s = clone(state);
   s.arrivals = s.arrivals.filter((a) => a.playerId !== playerId);
+  s.left = (s.left ?? []).filter((id) => id !== playerId);
   s.drawnInCycle = s.drawnInCycle.filter((id) => id !== playerId);
+  removeFromTeams(s, playerId);
+  placeWaiting(s);
+  if (!opts.openMatchStarted) refreshOpenDuration(s);
+  return s;
+}
+
+function removeFromTeams(s: CoreState, playerId: string): void {
   for (const t of s.teams) t.members = t.members.filter((id) => id !== playerId);
   // Drop empty queued teams.
   const empty = new Set(
@@ -188,7 +212,37 @@ export function removeCheckIn(
   );
   s.teams = s.teams.filter((t) => !empty.has(t.label));
   s.queue = s.queue.filter((l) => !empty.has(l));
+}
+
+/**
+ * A player went home during the day. They leave their team (which becomes
+ * incomplete) and stop counting as present; their history is kept.
+ * A team in the queue is completed by the normal rule when it enters; a team
+ * on the field finishes the match short and is completed when it ends.
+ */
+export function markLeft(state: DayState, playerId: string, opts: CheckInOptions = {}): DayState {
+  if (!state.arrivals.some((a) => a.playerId === playerId)) {
+    throw new EngineError("Jogador não fez check-in");
+  }
+  if (hasLeft(state, playerId)) throw new EngineError("Jogador já saiu");
+  const s = clone(state);
+  s.left = [...(s.left ?? []), playerId];
+  s.drawnInCycle = s.drawnInCycle.filter((id) => id !== playerId);
+  removeFromTeams(s, playerId);
   placeWaiting(s);
+  if (!opts.openMatchStarted) refreshOpenDuration(s);
+  return s;
+}
+
+/** A player who had left came back: rejoins as a new arrival (end of the order). */
+export function markReturned(state: DayState, playerId: string, opts: CheckInOptions = {}): DayState {
+  if (!hasLeft(state, playerId)) throw new EngineError("Jogador não está marcado como saída");
+  const s = clone(state);
+  s.left = s.left.filter((id) => id !== playerId);
+  const order = s.arrivals.reduce((m, a) => Math.max(m, a.order), 0) + 1;
+  const arrival = s.arrivals.find((a) => a.playerId === playerId)!;
+  arrival.order = order;
+  if (!arrival.isGoalkeeper) placeWaiting(s);
   if (!opts.openMatchStarted) refreshOpenDuration(s);
   return s;
 }
@@ -239,7 +293,10 @@ export interface FinishOutcome {
   state: DayState;
   left: TeamLabel | null;
   entered: TeamLabel | null;
+  /** Completion of the entering team (null if it was already complete). */
   draw: DrawRecord | null;
+  /** All completions made (entering team and, if short, the staying team). */
+  draws: DrawRecord[];
 }
 
 /**
@@ -278,7 +335,7 @@ export function finishMatch(state: DayState, result: MatchResult, rng: Rng): Fin
       durationMin: matchDuration(s),
       result: null,
     });
-    return { state: s, left: null, entered: null, draw: null };
+    return { state: s, left: null, entered: null, draw: null, draws: [] };
   }
 
   const loser = result.winner === home.label ? away : home;
@@ -289,47 +346,14 @@ export function finishMatch(state: DayState, result: MatchResult, rng: Rng): Fin
 
   const enteringLabel = s.queue.shift()!;
   const entering = getTeam(s, enteringLabel);
-  let draw: DrawRecord | null = null;
-
-  const needed = s.config.n - entering.members.length;
-  if (needed > 0) {
-    const fromWaiting = waitingList(s).slice(0, needed);
-    entering.members.push(...fromWaiting);
-    const stillNeeded = needed - fromWaiting.length;
-    const candidates = [...leaving.members];
-    let picked: string[] = [];
-    const cycleAtDraw = s.drawCycle;
-    if (stillNeeded > 0) {
-      const present = lineArrivals(s).map((a) => a.playerId);
-      const r = fairDraw({
-        candidates,
-        needed: stillNeeded,
-        drawnInCycle: s.drawnInCycle,
-        present,
-        cycle: s.drawCycle,
-        rng,
-      });
-      picked = r.picked;
-      s.drawnInCycle = r.drawnInCycle;
-      s.drawCycle = r.cycle;
-      leaving.members = leaving.members.filter((id) => !picked.includes(id));
-      entering.members.push(...picked);
-    }
-    draw = {
-      id: nextDrawId(s),
-      kind: "completion",
-      matchSeq: match.seq,
-      from: leaving.label,
-      to: entering.label,
-      cycle: cycleAtDraw,
-      candidates: stillNeeded > 0 ? candidates : [],
-      picked,
-      fromWaiting,
-      undone: false,
-      before: core(state),
-    };
-    s.draws.push(draw);
+  const before = core(state);
+  const draws: DrawRecord[] = [];
+  // Entering team first (main rule); then the staying team, if someone left it.
+  for (const target of [entering, staying]) {
+    const d = completeTeam(s, target, leaving, match.seq, before, rng);
+    if (d) draws.push(d);
   }
+  const draw = draws.find((d) => d.to === entering.label) ?? null;
 
   if (leaving.members.length > 0) {
     s.queue.push(leaving.label);
@@ -345,7 +369,60 @@ export function finishMatch(state: DayState, result: MatchResult, rng: Rng): Fin
     durationMin: matchDuration(s),
     result: null,
   });
-  return { state: s, left: leaving.label, entered: entering.label, draw };
+  return { state: s, left: leaving.label, entered: entering.label, draw, draws };
+}
+
+/**
+ * Fills `target` up to N: waiting players first (by arrival order), then a
+ * fair draw among the members of the team that just left.
+ */
+function completeTeam(
+  s: DayState,
+  target: Team,
+  leaving: Team,
+  matchSeq: number,
+  before: CoreState,
+  rng: Rng,
+): DrawRecord | null {
+  const needed = s.config.n - target.members.length;
+  if (needed <= 0) return null;
+  const fromWaiting = waitingList(s).slice(0, needed);
+  target.members.push(...fromWaiting);
+  const stillNeeded = needed - fromWaiting.length;
+  const candidates = [...leaving.members];
+  const cycleAtDraw = s.drawCycle;
+  let picked: string[] = [];
+  if (stillNeeded > 0 && candidates.length > 0) {
+    const r = fairDraw({
+      candidates,
+      needed: stillNeeded,
+      drawnInCycle: s.drawnInCycle,
+      present: lineArrivals(s).map((a) => a.playerId),
+      cycle: s.drawCycle,
+      rng,
+    });
+    picked = r.picked;
+    s.drawnInCycle = r.drawnInCycle;
+    s.drawCycle = r.cycle;
+    leaving.members = leaving.members.filter((id) => !picked.includes(id));
+    target.members.push(...picked);
+  }
+  if (fromWaiting.length === 0 && picked.length === 0) return null;
+  const record: DrawRecord = {
+    id: nextDrawId(s),
+    kind: "completion",
+    matchSeq,
+    from: leaving.label,
+    to: target.label,
+    cycle: cycleAtDraw,
+    candidates: picked.length > 0 ? candidates : [],
+    picked,
+    fromWaiting,
+    undone: false,
+    before,
+  };
+  s.draws.push(record);
+  return record;
 }
 
 /**
@@ -364,7 +441,7 @@ export function undoLastDraw(state: DayState): DayState {
   if (!stillRecent) {
     throw new EngineError("Só é possível desfazer o sorteio da última partida encerrada");
   }
-  const before = clone(last.before);
+  const before: CoreState = { ...clone(last.before), left: clone(last.before.left ?? []) };
   const known = new Set(before.arrivals.map((a) => a.playerId));
   const lateArrivals = state.arrivals
     .filter((a) => !known.has(a.playerId))
@@ -372,12 +449,20 @@ export function undoLastDraw(state: DayState): DayState {
 
   let s: DayState = {
     ...before,
-    draws: state.draws.map((d) => (d.id === last.id ? { ...d, undone: true } : d)),
+    draws: state.draws.map((d) =>
+      d.id === last.id || (last.kind === "completion" && d.kind === "completion" && d.matchSeq === last.matchSeq)
+        ? { ...d, undone: true }
+        : d,
+    ),
   };
   for (const a of lateArrivals) {
     s = clone(s);
     s.arrivals.push({ ...a });
     if (!a.isGoalkeeper) placeWaiting(s);
+  }
+  // Departures registered after the draw still apply.
+  for (const id of state.left ?? []) {
+    if (!before.left.includes(id)) s = markLeft(s, id, { openMatchStarted: true });
   }
   refreshOpenDuration(s);
   return s;

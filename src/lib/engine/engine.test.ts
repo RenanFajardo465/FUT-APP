@@ -10,7 +10,10 @@ import {
   finishMatch,
   formTeams,
   getTeam,
+  goalkeepers,
   lineArrivals,
+  markLeft,
+  markReturned,
   movePlayer,
   mulberry32,
   openMatch,
@@ -475,5 +478,97 @@ describe("ajustes manuais", () => {
   it("não desfaz check-in de quem já jogou", () => {
     const s = play(formed(6, 12)).state;
     expect(() => removeCheckIn(s, getTeam(s, "A").members[0])).toThrow();
+  });
+});
+
+describe("saída de jogador durante o dia", () => {
+  it("sai de time na fila: time fica incompleto e é completado ao entrar", () => {
+    let s = formed(6, 18);
+    const c0 = getTeam(s, "C").members[0];
+    s = markLeft(s, c0);
+    expect(getTeam(s, "C").members).toHaveLength(5);
+    expect(getTeam(s, "C").members).not.toContain(c0);
+    expect(lineArrivals(s).map((a) => a.playerId)).not.toContain(c0);
+    expect(s.arrivals.map((a) => a.playerId)).toContain(c0); // histórico mantido
+    checkInvariants(s);
+    const out = play(s, "A"); // B sai, C entra com 5 → sorteia 1 do B
+    expect(out.entered).toBe("C");
+    expect(out.draw!.picked).toHaveLength(1);
+    expect(getTeam(out.state, "C").members).toHaveLength(6);
+    expect(getTeam(out.state, "B").members).toHaveLength(5);
+    checkInvariants(out.state);
+  });
+
+  it("sai de time em campo: joga com um a menos e é completado no fim se ficar", () => {
+    let s = play(formed(6, 18), "A").state; // P2: A (1 jogo) × C; A sairá ao fim
+    const c = getTeam(s, "C");
+    const gone = c.members[0];
+    s = markLeft(s, gone, { openMatchStarted: true });
+    expect(getTeam(s, "C").members).toHaveLength(5);
+    const out = play(s, "C");
+    // A sai (2 seguidos), B entra completo; C fica e é completado com 1 sorteado do A
+    expect(out.left).toBe("A");
+    expect(out.entered).toBe("B");
+    expect(out.draw).toBeNull();
+    const toC = out.draws.find((d) => d.to === "C")!;
+    expect(toC.from).toBe("A");
+    expect(toC.picked).toHaveLength(1);
+    expect(getTeam(out.state, "C").members).toHaveLength(6);
+    expect(getTeam(out.state, "A").members).toHaveLength(5);
+    checkInvariants(out.state);
+  });
+
+  it("saída muda o tempo: 19 → 18 presentes volta para 10 min", () => {
+    let s = formed(6, 19);
+    expect(openMatch(s)!.durationMin).toBe(8);
+    s = markLeft(s, pid(19));
+    expect(openMatch(s)!.durationMin).toBe(10);
+  });
+
+  it("quem saiu não conta no ciclo de sorteio", () => {
+    let s = formed(6, 13);
+    const out = play(s, "A");
+    s = markLeft(out.state, out.draw!.picked[0], { openMatchStarted: true });
+    expect(s.drawnInCycle).not.toContain(out.draw!.picked[0]);
+    for (let i = 0; i < 10; i++) {
+      s = play(s).state;
+      checkInvariants(s);
+    }
+  });
+
+  it("time da fila que fica vazio some", () => {
+    let s = formed(6, 13);
+    s = markLeft(s, pid(13));
+    expect(s.teams.map((t) => t.label)).toEqual(["A", "B"]);
+    expect(s.queue).toEqual([]);
+    checkInvariants(s);
+  });
+
+  it("goleiro sai", () => {
+    let s = checkIn(formed(6, 12), "gk", true);
+    s = markLeft(s, "gk");
+    expect(goalkeepers(s)).toHaveLength(0);
+  });
+
+  it("volta como nova chegada, no fim da ordem", () => {
+    let s = formed(6, 13);
+    const a0 = getTeam(s, "A").members[0];
+    s = markLeft(s, a0);
+    expect(getTeam(s, "C").members).toEqual([pid(13)]);
+    s = markReturned(s, a0);
+    expect(getTeam(s, "C").members).toEqual([pid(13), a0]);
+    expect(s.arrivals.find((a) => a.playerId === a0)!.order).toBe(14);
+    expect(() => markReturned(s, a0)).toThrow();
+    checkInvariants(s);
+  });
+
+  it("desfazer sorteio mantém saídas registradas depois dele", () => {
+    let s = play(formed(6, 13), "A").state;
+    const gone = getTeam(s, "A").members[0];
+    s = markLeft(s, gone);
+    s = undoLastDraw(s);
+    expect(s.left).toContain(gone);
+    expect(s.teams.flatMap((t) => t.members)).not.toContain(gone);
+    checkInvariants(s);
   });
 });

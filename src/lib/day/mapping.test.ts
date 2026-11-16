@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkIn, createDay, finishMatch, formTeams, mulberry32, openMatch } from "@/lib/engine";
+import { checkIn, createDay, finishMatch, formTeams, markLeft, mulberry32, openMatch } from "@/lib/engine";
 import type { DayState } from "@/lib/engine";
 import { type DayRows, rowsToState, stateToPayload } from "./mapping";
 
@@ -26,6 +26,7 @@ function payloadToRows(s: DayState): DayRows {
       is_goalkeeper: a.is_goalkeeper,
       drawn_in_cycle: a.drawn,
       played: a.played,
+      left_at: a.left ? "2026-11-15T11:00:00Z" : null,
     })),
     teams: p.teams.map((t) => ({ label: t.label, position: t.position, streak: t.streak })),
     members: p.teams.flatMap((t) =>
@@ -67,6 +68,7 @@ function norm(s: DayState) {
     ...s,
     played: [...s.played].sort(),
     drawnInCycle: [...s.drawnInCycle].sort(),
+    left: [...s.left].sort(),
     teams: [...s.teams].sort((a, b) => a.label.localeCompare(b.label)),
   };
 }
@@ -86,5 +88,8 @@ describe("mapping banco ↔ engine", () => {
       s = finishMatch(s, { winner: m.away, penalties: i === 0, scoreHome: 1, scoreAway: 1 }, mulberry32(i)).state;
       expect(norm(rowsToState(payloadToRows(s)))).toEqual(norm(s));
     }
+
+    s = markLeft(s, "p3");
+    expect(norm(rowsToState(payloadToRows(s)))).toEqual(norm(s));
   });
 });

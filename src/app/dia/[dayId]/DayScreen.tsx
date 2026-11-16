@@ -1,6 +1,7 @@
 "use client";
 import { createContext, useContext, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { presentCount } from "@/lib/engine";
 import type { ActionResult } from "./actions";
 import type { DayView } from "./view";
 import { CheckInTab } from "./CheckInTab";
@@ -50,7 +51,7 @@ export function DayScreen({ view }: { view: DayView }) {
     rating: (id) => byId.get(id)?.rating ?? 3,
   };
 
-  const present = view.state.arrivals.length;
+  const present = presentCount(view.state);
   const tabs: { id: Tab; label: string }[] = [
     { id: "checkin", label: `Check-in (${present})` },
     { id: "jogo", label: "Jogo" },

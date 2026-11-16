@@ -122,3 +122,10 @@ Interpretações confirmadas na aprovação do modelo:
 6. Desfazer sorteio restaura o estado anterior e reabre a partida que gerou o
    sorteio (o resultado é registrado de novo). Check-ins feitos depois são
    mantidos. Só é permitido antes da partida seguinte começar.
+7. **Saída durante o dia** ("Saiu" no check-in): o jogador sai do time e deixa
+   de contar como presente (tempo 10/8 min e ciclo de sorteio), mas o histórico
+   fica guardado. Se ele estava num time da fila, o time é completado pela regra
+   normal quando entrar. Se estava em campo, o time termina a partida com um a
+   menos e, se continuar em campo, é completado no fim dela (primeiro pela
+   lista de espera, depois por sorteio no time que saiu). "Voltou" recoloca o
+   jogador como uma nova chegada, no fim da ordem.

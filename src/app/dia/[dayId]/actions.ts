@@ -9,6 +9,8 @@ import {
   checkIn,
   finishMatch,
   formTeams,
+  markLeft,
+  markReturned,
   movePlayer,
   removeCheckIn,
   reorderQueue,
@@ -57,6 +59,20 @@ export async function checkInAction(dayId: string, version: number, playerId: st
 export async function undoCheckInAction(dayId: string, version: number, playerId: string) {
   return mutate(dayId, version, ({ state, openMatchStarted }) =>
     removeCheckIn(state, playerId, { openMatchStarted }),
+  );
+}
+
+/** Jogador foi embora durante o dia (mantém o histórico). */
+export async function leftAction(dayId: string, version: number, playerId: string) {
+  return mutate(dayId, version, ({ state, openMatchStarted }) =>
+    markLeft(state, playerId, { openMatchStarted }),
+  );
+}
+
+/** Jogador que tinha saído voltou: entra como nova chegada. */
+export async function returnedAction(dayId: string, version: number, playerId: string) {
+  return mutate(dayId, version, ({ state, openMatchStarted }) =>
+    markReturned(state, playerId, { openMatchStarted }),
   );
 }
 

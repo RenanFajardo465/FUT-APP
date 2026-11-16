@@ -29,9 +29,10 @@ export function GameTab({ goCheckIn }: { goCheckIn: () => void }) {
   const away = getTeam(state, awayL);
   const finished = state.matches.filter((m) => m.result);
   const lastFinished = finished[finished.length - 1];
-  const lastDraw = [...state.draws].reverse().find((d) => !d.undone);
-  const showDraw = lastDraw?.kind === "completion" && lastDraw.matchSeq === lastFinished?.seq ? lastDraw : null;
-  const drawnIn = showDraw ? [...showDraw.picked, ...showDraw.fromWaiting] : [];
+  const recentDraws = state.draws.filter(
+    (d) => !d.undone && d.kind === "completion" && lastFinished && d.matchSeq === lastFinished.seq,
+  );
+  const drawnIn = recentDraws.flatMap((d) => [...d.picked, ...d.fromWaiting]);
 
   // Who leaves when the current match ends.
   const tired = [home, away].filter((t) => t.streak + 1 >= 2);
@@ -67,19 +68,21 @@ export function GameTab({ goCheckIn }: { goCheckIn: () => void }) {
         <p className="text-xs text-muted text-center mt-3">{leaving}</p>
       </section>
 
-      {showDraw && (
-        <section className="rounded-2xl border border-accent/40 bg-accent/5 p-3 text-sm">
-          <b>Partida {showDraw.matchSeq}:</b> saiu o {showDraw.from}.{" "}
-          {showDraw.fromWaiting.length > 0 && (
-            <>
-              Da espera para o {showDraw.to}: {showDraw.fromWaiting.map(name).join(", ")}.{" "}
-            </>
-          )}
-          {showDraw.picked.length > 0 && (
-            <>
-              Sorteados do {showDraw.from} para o {showDraw.to}: <b>{showDraw.picked.map(name).join(", ")}</b>.
-            </>
-          )}
+      {recentDraws.length > 0 && (
+        <section className="rounded-2xl border border-accent/40 bg-accent/5 p-3 text-sm space-y-1">
+          <p>
+            <b>Partida {recentDraws[0].matchSeq}:</b> saiu o {recentDraws[0].from}.
+          </p>
+          {recentDraws.map((d) => (
+            <p key={d.id}>
+              {d.fromWaiting.length > 0 && <>Da espera para o {d.to}: {d.fromWaiting.map(name).join(", ")}. </>}
+              {d.picked.length > 0 && (
+                <>
+                  Sorteados do {d.from} para o {d.to}: <b>{d.picked.map(name).join(", ")}</b>.
+                </>
+              )}
+            </p>
+          ))}
         </section>
       )}
 

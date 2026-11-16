@@ -46,7 +46,7 @@ export async function loadDay(supabase: SupabaseClient, dayId: string): Promise<
   const [attendances, teams, members, matches, draws, players, ratings] = await Promise.all([
     supabase
       .from("attendances")
-      .select("player_id, rsvp, checked_in_at, arrival_order, is_goalkeeper, drawn_in_cycle, played")
+      .select("player_id, rsvp, checked_in_at, arrival_order, is_goalkeeper, drawn_in_cycle, played, left_at")
       .eq("match_day_id", dayId),
     supabase.from("teams").select("label, position, streak").eq("match_day_id", dayId),
     supabase.from("team_members").select("player_id, label, joined_order").eq("match_day_id", dayId),

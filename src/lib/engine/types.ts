@@ -60,6 +60,12 @@ export interface CoreState {
   drawnInCycle: string[];
   /** Players who already finished at least one match. */
   played: string[];
+  /**
+   * Players who left during the day. They stay in `arrivals` (history) but no
+   * longer count as present: out of teams, the waiting list, the 10/8 min rule
+   * and the fairness cycle.
+   */
+  left: string[];
 }
 
 export interface DrawRecord {
