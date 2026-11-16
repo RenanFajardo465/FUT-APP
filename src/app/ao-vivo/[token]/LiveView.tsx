@@ -68,11 +68,12 @@ export function LiveView({
         (running && openMatch.startedAt ? now + skew - new Date(openMatch.startedAt).getTime() : 0))
     : 0;
 
-  const dateLabel = new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR", {
+  const rawDate = new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR", {
     weekday: "long",
     day: "2-digit",
     month: "long",
   });
+  const dateLabel = rawDate.charAt(0).toUpperCase() + rawDate.slice(1);
 
   const finished = state.matches.filter((m) => m.result);
   const lastFinished = finished[finished.length - 1];
@@ -90,7 +91,7 @@ export function LiveView({
         <div>
           <div className="text-xs text-muted">⚽ {APP_NAME} · ao vivo</div>
           <h1 className="text-xl font-bold">{groupName}</h1>
-          <div className="text-sm text-muted capitalize">{dateLabel}</div>
+          <div className="text-sm text-muted">{dateLabel}</div>
         </div>
         {status === "open" ? (
           <span className="inline-flex items-center gap-1.5 text-xs text-accent">
