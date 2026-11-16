@@ -9,7 +9,7 @@ cronômetro de partida.
 
 ## Fase 1 (atual): admin
 
-- Login do admin (e-mail e senha)
+- Login do admin com e-mail e senha ou conta Google
 - Grupos (multi-grupo; cada grupo tem um admin), jogadores com nota 1–5 e
   goleiros
 - Configuração de N (jogadores de linha por time) e dos tempos (10 / 8 min)
@@ -71,6 +71,11 @@ Em Authentication → URL Configuration, configure:
 - **Site URL:** `http://localhost:3000` (em produção, a URL da Vercel)
 - **Redirect URLs:** `http://localhost:3000/auth/confirm` e
   `https://<seu-app>.vercel.app/auth/confirm`
+
+**Login com Google:** no [Google Cloud Console](https://console.cloud.google.com/apis/credentials),
+crie um *OAuth client ID* do tipo *Web application* com a URI de redirecionamento
+autorizada `https://<ref>.supabase.co/auth/v1/callback`. Depois, no Supabase, em
+Authentication → Sign In / Providers → Google, ative o provedor e cole o Client ID e o Client Secret.
 
 Por padrão o Supabase exige confirmação de e-mail no cadastro. Para testar
 mais rápido, desative em Authentication → Providers → Email → *Confirm email*.

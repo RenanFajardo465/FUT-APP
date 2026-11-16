@@ -40,6 +40,21 @@ export async function signUp(_: AuthState, form: FormData): Promise<AuthState> {
   return { message: "Conta criada! Confirme pelo link enviado ao seu e-mail e depois entre." };
 }
 
+/** OAuth com Google (PKCE): o retorno cai em /auth/confirm?code=… */
+export async function signInWithGoogle() {
+  const supabase = await createClient();
+  const origin = (await headers()).get("origin") ?? "";
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${origin}/auth/confirm`,
+      queryParams: { prompt: "select_account" },
+    },
+  });
+  if (error || !data.url) redirect("/login?erro=google");
+  redirect(data.url);
+}
+
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
