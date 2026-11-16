@@ -2,3 +2,5 @@
 export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Pelada";
 export const APP_DESCRIPTION = "Gestão de peladas: check-in, times equilibrados, rodízio e cronômetro.";
 export const THEME_COLOR = "#0b1410";
+/** E-mail de contato exibido na Política de Privacidade e nos Termos. */
+export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || "renan.bfajardo@gmail.com";

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { APP_NAME } from "@/lib/app-config";
 import { LoginForm } from "./LoginForm";
 
@@ -13,6 +14,14 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <p className="text-muted mt-1">Organize sua pelada do check-in ao apito final.</p>
       </div>
       <LoginForm urlError={erro} />
+      <footer className="mt-8 flex gap-4 text-xs text-muted">
+        <Link href="/privacidade" className="underline">
+          Política de Privacidade
+        </Link>
+        <Link href="/termos" className="underline">
+          Termos de Uso
+        </Link>
+      </footer>
     </main>
   );
 }
