@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useState, useTransition } from "react";
+import { createContext, useContext, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { presentCount } from "@/lib/engine";
 import type { ActionResult } from "./actions";
@@ -32,6 +32,16 @@ export function DayScreen({ view }: { view: DayView }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>(view.state.field ? "jogo" : "checkin");
+
+  // Keeps the admin screen in sync with plays made from the public live link
+  // (and other devices). Skipped while an action is running or the tab is hidden.
+  useEffect(() => {
+    if (view.status !== "open") return;
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible" && !pending) router.refresh();
+    }, 5000);
+    return () => clearInterval(id);
+  }, [router, view.status, pending]);
 
   const byId = new Map(view.players.map((p) => [p.id, p]));
   const ctx: DayCtx = {

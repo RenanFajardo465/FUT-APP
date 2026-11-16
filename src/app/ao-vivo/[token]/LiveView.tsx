@@ -1,10 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { type DayState, type Team, getTeam, goalkeepers, waitingList } from "@/lib/engine";
 import { APP_NAME } from "@/lib/app-config";
 import { card } from "@/lib/ui/styles";
 import { TEAM_STYLE } from "@/app/dia/[dayId]/view";
+import { sharedStartAction } from "./actions";
 
 const REFRESH_MS = 5000;
 
@@ -24,6 +25,7 @@ function fmt(ms: number) {
 }
 
 export function LiveView({
+  token,
   groupName,
   date,
   status,
@@ -32,6 +34,7 @@ export function LiveView({
   openMatch,
   serverNow,
 }: {
+  token: string;
   groupName: string;
   date: string;
   status: "open" | "closed";
@@ -44,6 +47,39 @@ export function LiveView({
   const [now, setNow] = useState(() => Date.now());
   const [skew, setSkew] = useState(() => serverNow - Date.now());
   const name = (id: string) => names[id] ?? "?";
+  const [pending, start] = useTransition();
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // Local copy of the open match so a play shows up instantly; server data wins on refresh.
+  const [match, setMatch] = useState<LiveMatch | null>(openMatch);
+  useEffect(() => {
+    setMatch(openMatch);
+  }, [openMatch?.seq, openMatch?.status, openMatch?.startedAt, openMatch?.elapsedMs]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const play = () => {
+    if (!match) return;
+    start(async () => {
+      setNotice(null);
+      const r = await sharedStartAction(token, match.seq);
+      if (!r.ok) {
+        setNotice(r.error ?? "Não foi possível iniciar.");
+      } else if (r.match) {
+        setSkew(new Date(r.serverNow!).getTime() - Date.now());
+        setNow(Date.now());
+        setMatch({
+          seq: r.match.seq,
+          durationMin: r.match.duration_min,
+          status: r.match.status as LiveMatch["status"],
+          startedAt: r.match.started_at,
+          elapsedMs: Number(r.match.elapsed_ms),
+        });
+        if (!r.started) setNotice("O cronômetro já tinha sido iniciado.");
+      } else {
+        setNotice("Essa partida já mudou. Atualizando…");
+      }
+      router.refresh();
+    });
+  };
 
   // Re-fetch from the server every few seconds (only while the page is visible).
   useEffect(() => {
@@ -55,18 +91,18 @@ export function LiveView({
   }, [router, status]);
   useEffect(() => setSkew(serverNow - Date.now()), [serverNow]);
 
-  const running = openMatch?.status === "running";
+  const running = match?.status === "running";
   useEffect(() => {
     if (!running) return;
     const id = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(id);
   }, [running]);
 
-  const remaining = openMatch
-    ? openMatch.durationMin * 60_000 -
-      (openMatch.elapsedMs +
-        (running && openMatch.startedAt ? now + skew - new Date(openMatch.startedAt).getTime() : 0))
+  const remaining = match
+    ? match.durationMin * 60_000 -
+      (match.elapsedMs + (running && match.startedAt ? now + skew - new Date(match.startedAt).getTime() : 0))
     : 0;
+  const canPlay = status === "open" && !!match && (match.status === "pending" || match.status === "paused");
 
   const rawDate = new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR", {
     weekday: "long",
@@ -124,7 +160,7 @@ export function LiveView({
               <span className="text-muted text-xl">×</span>
               <Badge label={state.field[1]} />
             </div>
-            {openMatch && (
+            {match && (
               <>
                 <div
                   className={`tabular font-bold leading-none mt-3 text-[clamp(3.5rem,18vw,6rem)] ${
@@ -134,11 +170,22 @@ export function LiveView({
                   {fmt(remaining)}
                 </div>
                 <div className="text-sm text-muted mt-1">
-                  Partida {openMatch.seq}
-                  {openMatch.status === "pending" && " · aguardando início"}
-                  {openMatch.status === "paused" && " · pausada"}
-                  {remaining <= 0 && openMatch.status !== "pending" && " · tempo esgotado"}
+                  Partida {match.seq}
+                  {match.status === "pending" && " · aguardando início"}
+                  {match.status === "paused" && " · pausada"}
+                  {remaining <= 0 && match.status !== "pending" && " · tempo esgotado"}
                 </div>
+                {canPlay && (
+                  <button
+                    type="button"
+                    onClick={play}
+                    disabled={pending}
+                    className="mt-4 w-full h-14 rounded-xl bg-accent text-accent-ink text-lg font-semibold active:scale-[.98] disabled:opacity-50"
+                  >
+                    {pending ? "Iniciando…" : match.status === "paused" ? "▶ Retomar" : "▶ Dar play"}
+                  </button>
+                )}
+                {notice && <p className="text-sm text-muted mt-2">{notice}</p>}
               </>
             )}
           </section>

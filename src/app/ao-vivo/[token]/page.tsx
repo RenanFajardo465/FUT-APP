@@ -12,6 +12,7 @@ export default async function LivePage({ params }: { params: Promise<{ token: st
   const { state } = day;
   return (
     <LiveView
+      token={token}
       groupName={day.groupName}
       date={day.date}
       status={day.status}
