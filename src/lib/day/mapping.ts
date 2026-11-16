@@ -12,6 +12,7 @@ export interface MatchDayRow {
   minutes_crowded: number;
   draw_cycle: number;
   version: number;
+  share_token?: string;
 }
 
 export interface AttendanceRow {

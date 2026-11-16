@@ -129,3 +129,12 @@ Interpretações confirmadas na aprovação do modelo:
    menos e, se continuar em campo, é completado no fim dela (primeiro pela
    lista de espera, depois por sorteio no time que saiu). "Voltou" recoloca o
    jogador como uma nova chegada, no fim da ordem.
+
+## Acompanhamento ao vivo
+
+Cada jogo do dia tem um link público somente leitura, `/ao-vivo/<token>`. O
+admin compartilha pelo botão "📲 Compartilhar acompanhamento ao vivo" na tela
+do jogo. Quem abre o link não precisa de login e vê times, fila, cronômetro,
+sorteios e resultados, com atualização a cada 5 s. O token é um UUID aleatório.
+A função `get_shared_day` (security definer, liberada para `anon`) devolve só
+nomes e dados do jogo, **nunca as notas**.

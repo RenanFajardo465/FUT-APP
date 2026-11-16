@@ -19,6 +19,8 @@ export interface DayView {
   date: string;
   status: "open" | "closed";
   version: number;
+  /** Token do link público /ao-vivo (null antes da migration 5). */
+  shareToken: string | null;
   config: DayConfig;
   players: PlayerInfo[];
   /** Estado do engine (snapshots dos sorteios removidos para aliviar o payload). */

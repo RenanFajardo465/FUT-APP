@@ -25,6 +25,7 @@ export default async function DayPage({ params }: { params: Promise<{ dayId: str
     date: rows.day.date,
     status: rows.day.status,
     version: rows.day.version,
+    shareToken: rows.day.share_token ?? null,
     config: state.config,
     players: ctx.players.filter((p) => p.active || checked.has(p.id)),
     state: { ...state, draws: state.draws.map((d) => ({ ...d, before: undefined as never })) },

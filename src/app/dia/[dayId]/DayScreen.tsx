@@ -7,6 +7,7 @@ import type { DayView } from "./view";
 import { CheckInTab } from "./CheckInTab";
 import { GameTab } from "./GameTab";
 import { AdjustTab } from "./AdjustTab";
+import { ShareButton } from "./ShareButton";
 
 interface DayCtx {
   view: DayView;
@@ -96,6 +97,11 @@ export function DayScreen({ view }: { view: DayView }) {
         </div>
       )}
       <main className="mx-auto max-w-2xl px-4 py-4 pb-24">
+        {view.shareToken && view.status === "open" && tab !== "ajustes" && (
+          <div className="mb-4">
+            <ShareButton token={view.shareToken} groupName={view.groupName} />
+          </div>
+        )}
         {tab === "checkin" && <CheckInTab onFormed={() => setTab("jogo")} />}
         {tab === "jogo" && <GameTab goCheckIn={() => setTab("checkin")} />}
         {tab === "ajustes" && <AdjustTab />}
